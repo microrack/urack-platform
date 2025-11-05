@@ -257,9 +257,26 @@ def collect_headers():
         if (arduino_src / "libraries").exists():
             copy_headers_only(arduino_src / "libraries", arduino_dest / "libraries")
         
-        # Copy tools directory completely (contains partitions.csv, etc - not source code)
+        # Copy tools directory selectively (only scripts and data, no binaries)
         if (arduino_src / "tools").exists():
-            shutil.copytree(arduino_src / "tools", arduino_dest / "tools", dirs_exist_ok=True)
+            tools_src = arduino_src / "tools"
+            tools_dest = arduino_dest / "tools"
+            tools_dest.mkdir(exist_ok=True, parents=True)
+            
+            # Copy only necessary file types (exclude .exe and other binaries)
+            allowed_extensions = ('.py', '.csv', '.ld', '.json', '.txt', '.md')
+            
+            for item in tools_src.rglob('*'):
+                if item.is_file():
+                    # Skip binary executables
+                    if item.suffix.lower() in ('.exe', '.dll', '.so', '.dylib', '.bin'):
+                        continue
+                    # Copy only allowed extensions or files without extension
+                    if item.suffix in allowed_extensions or not item.suffix:
+                        relative_path = item.relative_to(tools_src)
+                        dest_file = tools_dest / relative_path
+                        dest_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(item, dest_file)
         
         print("Copied Arduino core headers")
     
@@ -272,8 +289,14 @@ def collect_headers():
         # Copy ESP32 specific headers - preserve the esp32/include structure
         esp32_dir = arduino_libs_src / "esp32"
         if esp32_dir.exists():
-            # Copy entire esp32 directory structure to preserve esp32/include/... paths
-            shutil.copytree(esp32_dir, espidf_dest / "esp32", dirs_exist_ok=True)
+            # Copy entire esp32 directory structure but EXCLUDE lib/ (109MB of compiled libraries we don't need)
+            # All libraries are already compiled into liburack_arduino.a
+            shutil.copytree(
+                esp32_dir, 
+                espidf_dest / "esp32", 
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns('lib')  # Exclude lib/ directory with .a files
+            )
             
             # Now overwrite the pioarduino-build.py with adapted version
             adapted_script = espidf_dest / "esp32" / "pioarduino-build.py"
