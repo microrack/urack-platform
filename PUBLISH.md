@@ -118,3 +118,44 @@ git push origin v1.0.0
 
 В `platform.json` обновите версию перед каждым релизом.
 
+## Автоматическая сборка через GitHub Actions
+
+В репозитории настроен GitHub Action (`.github/workflows/release.yml`), который автоматически:
+
+1. **Собирает prebuilt библиотеки** при создании тега
+2. **Создает ZIP архив** со всеми файлами
+3. **Публикует GitHub Release** с архивом
+
+### Как создать релиз:
+
+```bash
+# 1. Обновите версию в platform.json
+# 2. Закоммитьте изменения
+git add platform.json
+git commit -m "Bump version to 1.0.0"
+git push
+
+# 3. Создайте и отправьте тег
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+GitHub Action автоматически:
+- Установит PlatformIO
+- Соберет библиотеки
+- Создаст `platform-urack-esp32-v1.0.0.zip`
+- Опубликует релиз
+
+### После публикации:
+
+Пользователи смогут использовать прямую ссылку:
+
+```ini
+[env:modesp32v1]
+platform = https://github.com/USERNAME/urack-esp32-platform/releases/download/v1.0.0/platform-urack-esp32-v1.0.0.zip
+board = mod-esp32-v1
+framework = arduino
+```
+
+Никаких дополнительных действий не требуется - всё уже собрано!
+

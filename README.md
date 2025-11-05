@@ -54,11 +54,40 @@ This will:
 
 ## Usage
 
+### Option 1: From GitHub Release (Recommended)
+
 In your `platformio.ini`:
 
 ```ini
 [env:modesp32v1]
-platform = file://path/to/urack-platform
+platform = https://github.com/USERNAME/urack-esp32-platform/releases/download/v1.0.0/platform-urack-esp32-v1.0.0.zip
+board = mod-esp32-v1
+framework = arduino
+monitor_speed = 115200
+```
+
+Replace `USERNAME` and `v1.0.0` with actual values.
+
+### Option 2: From Git Repository
+
+```ini
+[env:modesp32v1]
+platform = https://github.com/USERNAME/urack-esp32-platform.git
+board = mod-esp32-v1
+framework = arduino
+```
+
+**Note**: First build will take longer as it needs to compile libraries. Run:
+```bash
+cd ~/.platformio/platforms/urack-esp32
+python3 build_precompiled_libs.py
+```
+
+### Option 3: Local Development
+
+```ini
+[env:modesp32v1]
+platform = file:///path/to/urack-platform
 board = mod-esp32-v1
 framework = arduino
 monitor_speed = 115200
