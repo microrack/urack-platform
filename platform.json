@@ -1,0 +1,50 @@
+{
+  "name": "urack-esp32",
+  "title": "URack ESP32 Platform",
+  "description": "URack ESP32 platform with pre-compiled libraries for mod-esp32-v1 board",
+  "homepage": "https://github.com/coreglitch/urack",
+  "license": "Apache-2.0",
+  "keywords": [
+    "dev-platform",
+    "Wi-Fi",
+    "Bluetooth",
+    "Xtensa",
+    "ESP32"
+  ],
+  "engines": {
+    "platformio": ">=6.1.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coreglitch/urack.git"
+  },
+  "version": "1.0.0",
+  "frameworks": {
+    "arduino": {
+      "script": "builder/frameworks/arduino.py"
+    },
+    "espidf": {
+      "script": "builder/frameworks/espidf.py"
+    }
+  },
+  "packages": {
+    "toolchain-xtensa-esp-elf": {
+      "type": "toolchain",
+      "optional": false,
+      "owner": "platformio",
+      "version": "14.2.0+20241119"
+    },
+    "tool-esptoolpy": {
+      "type": "uploader",
+      "owner": "pioarduino",
+      "version": "https://github.com/pioarduino/esptool/releases/download/v4.8.9/esptool.zip"
+    },
+    "tool-openocd-esp32": {
+      "type": "debugger",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~2.1100.0"
+    }
+  }
+}
+
