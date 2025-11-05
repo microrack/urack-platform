@@ -24,9 +24,12 @@ http://arduino.cc/en/Reference/HomePage
 
 # Extends: https://github.com/pioarduino/platform-espressif32/blob/develop/builder/main.py
 
+import sys
 from os.path import abspath, basename, isdir, isfile, join
 from copy import deepcopy
 from SCons.Script import DefaultEnvironment, SConscript
+
+IS_WINDOWS = sys.platform.startswith("win")
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
@@ -47,7 +50,7 @@ assert isdir(PREBUILT_DIR)
 
 
 def get_partition_table_csv(variants_dir):
-    fwpartitions_dir = join(FRAMEWORK_DIR, "tools", "partitions")
+    """Get partition table CSV - use prebuilt/default.csv or custom from variant"""
     variant_partitions_dir = join(variants_dir, board_config.get("build.variant", ""))
 
     if partitions_name:
@@ -55,79 +58,42 @@ def get_partition_table_csv(variants_dir):
         if isfile(env.subst(join(variant_partitions_dir, partitions_name))):
             return join(variant_partitions_dir, partitions_name)
 
-        return abspath(
-            join(fwpartitions_dir, partitions_name)
-            if isfile(env.subst(join(fwpartitions_dir, partitions_name)))
-            else partitions_name
-        )
+        # Check if it's an absolute path
+        if isfile(env.subst(partitions_name)):
+            return abspath(partitions_name)
+        
+        # Try in prebuilt directory
+        prebuilt_csv = join(PREBUILT_DIR, partitions_name)
+        if isfile(env.subst(prebuilt_csv)):
+            return prebuilt_csv
 
+    # Check for variant-specific partitions
     variant_partitions = join(variant_partitions_dir, "partitions.csv")
-    return variant_partitions if isfile(env.subst(variant_partitions)) else join(fwpartitions_dir, "default.csv")
+    if isfile(env.subst(variant_partitions)):
+        return variant_partitions
+    
+    # Use default from prebuilt
+    return join(PREBUILT_DIR, "default.csv")
 
 
 def get_bootloader_image(variants_dir):
+    """Get bootloader image path - use pre-compiled from prebuilt or custom from variant"""
     bootloader_image_file = "bootloader.bin"
     if partitions_name.endswith("tinyuf2.csv"):
         bootloader_image_file = "bootloader-tinyuf2.bin"
 
+    # Check if variant has a custom bootloader
     variant_bootloader = join(
         variants_dir,
         board_config.get("build.variant", ""),
         board_config.get("build.arduino.custom_bootloader", bootloader_image_file),
     )
-
-    # Get boot mode and frequency by calling the functions directly
-    boot_mode = env["__get_board_boot_mode"](env) if "__get_board_boot_mode" in env else board_config.get("build.boot", board_config.get("build.flash_mode", "dio"))
-    boot_freq = env["__get_board_f_boot"](env) if "__get_board_f_boot" in env else "40m"
     
-    bootloader_elf = join(
-        FRAMEWORK_LIBS_DIR,
-        build_mcu,
-        "bin",
-        f"bootloader_{boot_mode}_{boot_freq}.elf",
-    )
+    if isfile(env.subst(variant_bootloader)):
+        return variant_bootloader
     
-    return (
-        variant_bootloader
-        if isfile(env.subst(variant_bootloader))
-        else generate_bootloader_image(bootloader_elf)
-    )
-
-
-def generate_bootloader_image(bootloader_elf):
-    bootloader_cmd = env.Command(
-        join("$BUILD_DIR", "bootloader.bin"),
-        bootloader_elf,
-        env.VerboseAction(
-            " ".join(
-                [
-                    '"$PYTHONEXE" "$OBJCOPY"',
-                    "--chip",
-                    build_mcu,
-                    "elf2image",
-                    "--flash_mode",
-                    "${__get_board_flash_mode(__env__)}",
-                    "--flash_freq",
-                    "${__get_board_f_image(__env__)}",
-                    "--flash_size",
-                    board_config.get("upload.flash_size", "4MB"),
-                    "-o",
-                    "$TARGET",
-                    "$SOURCES",
-                ]
-            ),
-            "Building $TARGET",
-        ),
-    )
-
-    env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", bootloader_cmd)
-
-    # Because the Command always returns a NodeList, we have to
-    # access the first element in the list to get the Node object
-    # that actually represents the bootloader image.
-    # Also, this file is later used in generic Python code, so the
-    # Node object in converted to a generic string
-    return str(bootloader_cmd[0])
+    # Use pre-compiled bootloader from prebuilt directory
+    return join(PREBUILT_DIR, "bootloader.bin")
 
 
 def add_tinyuf2_extra_image():
@@ -200,17 +166,23 @@ if "build.variant" in board_config:
 # Process framework extra images
 #
 
+bootloader_image = get_bootloader_image(variants_dir)
+flash_extra_images = [
+    (
+        "0x1000" if build_mcu in ["esp32", "esp32s2"] else ("0x2000" if build_mcu in ["esp32p4"] else "0x0000"),
+        bootloader_image,
+    ),
+    ("0x8000", join(env.subst("$BUILD_DIR"), "partitions.bin")),
+    ("0xe000", join(PREBUILT_DIR, "boot_app0.bin")),
+] + [(offset, join(FRAMEWORK_DIR, img)) for offset, img in board_config.get("upload.arduino.flash_extra_images", [])]
+
+print(f"URack: Setting up FLASH_EXTRA_IMAGES with {len(flash_extra_images)} files:")
+for offset, path in flash_extra_images:
+    print(f"  {offset} -> {path}")
+
 env.Append(
     LIBSOURCE_DIRS=[join(FRAMEWORK_DIR, "libraries")],
-    FLASH_EXTRA_IMAGES=[
-        (
-            "0x1000" if build_mcu in ["esp32", "esp32s2"] else ("0x2000" if build_mcu in ["esp32p4"] else "0x0000"),
-            get_bootloader_image(variants_dir),
-        ),
-        ("0x8000", join(env.subst("$BUILD_DIR"), "partitions.bin")),
-        ("0xe000", join(FRAMEWORK_DIR, "tools", "partitions", "boot_app0.bin")),
-    ]
-    + [(offset, join(FRAMEWORK_DIR, img)) for offset, img in board_config.get("upload.arduino.flash_extra_images", [])],
+    FLASH_EXTRA_IMAGES=flash_extra_images,
 )
 
 # Add an extra UF2 image if the 'TinyUF2' partition is selected
@@ -218,17 +190,25 @@ if partitions_name.endswith("tinyuf2.csv") or board_config.get("upload.arduino.t
     add_tinyuf2_extra_image()
 
 #
-# Generate partition table
+# Copy pre-compiled partition table
 #
 
-env.Replace(PARTITIONS_TABLE_CSV=get_partition_table_csv(variants_dir))
+# Use pre-compiled partitions.bin from prebuilt directory
+prebuilt_partitions = join(PREBUILT_DIR, "partitions.bin")
+build_partitions = join("$BUILD_DIR", "partitions.bin")
 
+# Copy partitions.bin from prebuilt to build directory
+if IS_WINDOWS:
+    copy_cmd = "copy /Y"
+else:
+    copy_cmd = "cp"
+    
 partition_table = env.Command(
-    join("$BUILD_DIR", "partitions.bin"),
-    "$PARTITIONS_TABLE_CSV",
+    build_partitions,
+    prebuilt_partitions,
     env.VerboseAction(
-        '"$PYTHONEXE" "%s" -q $SOURCE $TARGET' % join(FRAMEWORK_DIR, "tools", "gen_esp32part.py"),
-        "Generating partitions $TARGET",
+        "%s \"$SOURCE\" \"$TARGET\"" % copy_cmd,
+        "Copying partitions $TARGET",
     ),
 )
 env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
@@ -240,3 +220,11 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 action = deepcopy(env["BUILDERS"]["ElfToBin"].action)
 action.cmd_list = env["BUILDERS"]["ElfToBin"].action.cmd_list.replace("-o", "--elf-sha256-offset 0xb0 -o")
 env["BUILDERS"]["ElfToBin"].action = action
+
+#
+# Set application offset for upload
+#
+
+env.Replace(
+    ESP32_APP_OFFSET=board_config.get("upload.offset_address", "0x10000")
+)

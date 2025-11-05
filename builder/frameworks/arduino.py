@@ -30,7 +30,9 @@ PREBUILT_DIR = join(FRAMEWORK_DIR, "prebuilt")
 PREBUILT_LIB = join(PREBUILT_DIR, "liburack_arduino.a")
 
 # Call adapted pioarduino-build.py which sets up all Arduino paths
+print("URack Arduino: Loading pioarduino-build.py...")
 SConscript(join(platform.get_dir(), "builder", "frameworks", "pioarduino-build.py"))
+print("URack Arduino: pioarduino-build.py loaded")
 
 # Add pre-compiled library to link
 if isfile(PREBUILT_LIB):

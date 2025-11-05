@@ -363,6 +363,52 @@ def collect_headers():
                 shutil.copy2(sdkconfig_files[0], espidf_dest / "sdkconfig.h")
             print(f"Copied sdkconfig.h")
 
+def copy_bootloader_and_partitions():
+    """Copy bootloader.bin, partitions.bin, boot_app0.bin and default.csv to prebuilt"""
+    print("Copying bootloader and partition files...")
+    
+    build_dir = BUILD_TEMP_DIR / ".pio" / "build" / "esp32dev"
+    pio_packages = Path.home() / ".platformio" / "packages"
+    
+    # Copy bootloader.bin
+    bootloader_src = build_dir / "bootloader.bin"
+    if bootloader_src.exists():
+        shutil.copy2(bootloader_src, PREBUILT_DIR / "bootloader.bin")
+        print("Copied bootloader.bin")
+    else:
+        print(f"Warning: bootloader.bin not found at {bootloader_src}")
+    
+    # Copy partitions.bin
+    partitions_src = build_dir / "partitions.bin"
+    if partitions_src.exists():
+        shutil.copy2(partitions_src, PREBUILT_DIR / "partitions.bin")
+        print("Copied partitions.bin")
+    else:
+        print(f"Warning: partitions.bin not found at {partitions_src}")
+    
+    # Copy boot_app0.bin from Arduino framework package
+    arduino_src = pio_packages / "framework-arduinoespressif32"
+    boot_app0_src = arduino_src / "tools" / "partitions" / "boot_app0.bin"
+    if boot_app0_src.exists():
+        shutil.copy2(boot_app0_src, PREBUILT_DIR / "boot_app0.bin")
+        print("Copied boot_app0.bin")
+    else:
+        print(f"Warning: boot_app0.bin not found at {boot_app0_src}")
+    
+    # Copy default.csv from Arduino framework package
+    default_csv_src = arduino_src / "tools" / "partitions" / "default.csv"
+    if default_csv_src.exists():
+        shutil.copy2(default_csv_src, PREBUILT_DIR / "default.csv")
+        print("Copied default.csv")
+    else:
+        print(f"Warning: default.csv not found at {default_csv_src}")
+    
+    # Remove tools/partitions directory from prebuilt as it's not needed
+    tools_partitions_dir = PREBUILT_DIR / "include" / "arduino" / "tools" / "partitions"
+    if tools_partitions_dir.exists():
+        shutil.rmtree(tools_partitions_dir)
+        print("Removed tools/partitions directory")
+
 def main():
     print("=" * 60)
     print("URack ESP32 Pre-compiled Library Builder")
@@ -384,10 +430,17 @@ def main():
     # Step 5: Collect headers
     collect_headers()
     
+    # Step 6: Copy bootloader and partition files
+    copy_bootloader_and_partitions()
+    
     print("\n" + "=" * 60)
     print("Build completed successfully!")
     print(f"Library: {output_lib}")
     print(f"Headers: {PREBUILT_DIR / 'include'}")
+    print(f"Bootloader: {PREBUILT_DIR / 'bootloader.bin'}")
+    print(f"Partitions: {PREBUILT_DIR / 'partitions.bin'}")
+    print(f"Boot app0: {PREBUILT_DIR / 'boot_app0.bin'}")
+    print(f"Default partitions CSV: {PREBUILT_DIR / 'default.csv'}")
     print("=" * 60)
     
     # Optional: Clean up temp directory
