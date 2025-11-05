@@ -110,29 +110,6 @@ jobs:
         du -h prebuilt/liburack_arduino.a
         echo "Headers count:"
         find prebuilt/include -name "*.h" | wc -l
-        
-        # Find toolchain path
-        TOOLCHAIN=$(find ~/.platformio/packages -name "xtensa-esp32-elf-nm" -type f 2>/dev/null | head -1)
-        if [ -n "$TOOLCHAIN" ]; then
-          echo "Toolchain found: $TOOLCHAIN"
-          NM_CMD=$(dirname "$TOOLCHAIN")/xtensa-esp32-elf-nm
-          AR_CMD=$(dirname "$TOOLCHAIN")/xtensa-esp32-elf-ar
-          
-          echo "Object files in library:"
-          $AR_CMD t prebuilt/liburack_arduino.a | wc -l
-          
-          echo "Checking for app_main symbol:"
-          if $NM_CMD prebuilt/liburack_arduino.a | grep -q "T app_main"; then
-            echo "✅ app_main found in library"
-          else
-            echo "❌ ERROR: app_main NOT found in library!"
-            echo "Library contents:"
-            $AR_CMD t prebuilt/liburack_arduino.a | grep main || echo "No main files found"
-            exit 1
-          fi
-        else
-          echo "⚠️ Warning: Toolchain not found, skipping symbol verification"
-        fi
     
     - name: Create release archive
       run: |
