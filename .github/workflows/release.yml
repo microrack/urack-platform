@@ -30,35 +30,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pio-
     
-    - name: Initialize and verify submodule
-      run: |
-        echo "=== Checking submodule status ==="
-        git submodule status
-        
-        echo ""
-        echo "=== Updating submodules ==="
-        git submodule update --init --recursive
-        
-        echo ""
-        echo "=== Verifying submodule content ==="
-        if [ -d "platform-espressif32-54.03.20-esp" ]; then
-          echo "✅ Submodule directory exists"
-          echo "Files in submodule:"
-          ls -la platform-espressif32-54.03.20-esp/ | head -20
-          
-          echo ""
-          echo "Checking for builder directory:"
-          if [ -d "platform-espressif32-54.03.20-esp/builder" ]; then
-            echo "✅ builder directory exists"
-          else
-            echo "❌ ERROR: builder directory not found!"
-            exit 1
-          fi
-        else
-          echo "❌ ERROR: Submodule not found!"
-          exit 1
-        fi
-    
     - name: Install PlatformIO
       run: |
         python -m pip install --upgrade pip
@@ -67,6 +38,7 @@ jobs:
     - name: Build pre-compiled libraries
       run: |
         python3 build_precompiled_libs.py
+<<<<<<< HEAD
         
         echo ""
         echo "=== Generated platformio.ini ==="
@@ -102,6 +74,8 @@ jobs:
         else
           echo "ERROR: FrameworkArduino/main.cpp.o not found!"
         fi
+=======
+>>>>>>> parent of 2e14630 (Add extensive debugging for GitHub Actions build)
     
     - name: Verify prebuilt directory
       run: |
