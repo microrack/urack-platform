@@ -289,14 +289,9 @@ def collect_headers():
         # Copy ESP32 specific headers - preserve the esp32/include structure
         esp32_dir = arduino_libs_src / "esp32"
         if esp32_dir.exists():
-            # Copy entire esp32 directory structure but EXCLUDE lib/ (109MB of compiled libraries we don't need)
-            # All libraries are already compiled into liburack_arduino.a
-            shutil.copytree(
-                esp32_dir, 
-                espidf_dest / "esp32", 
-                dirs_exist_ok=True,
-                ignore=shutil.ignore_patterns('lib')  # Exclude lib/ directory with .a files
-            )
+            # Copy entire esp32 directory structure including lib/ 
+            # lib/ contains ESP-IDF precompiled libraries (WiFi, BLE, crypto, etc.) needed for linking
+            shutil.copytree(esp32_dir, espidf_dest / "esp32", dirs_exist_ok=True)
             
             # Now overwrite the pioarduino-build.py with adapted version
             adapted_script = espidf_dest / "esp32" / "pioarduino-build.py"

@@ -92,7 +92,7 @@ upload_actions = []
 
 if upload_protocol.startswith("esptool"):
     env.Replace(
-        UPLOADER="esptool.py",
+        UPLOADER=join(platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
         UPLOADERFLAGS=[
             "--chip", "esp32",
             "--port", '"$UPLOAD_PORT"',
