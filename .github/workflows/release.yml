@@ -73,14 +73,21 @@ jobs:
         cat build_temp/platformio.ini
         
         echo ""
-        echo "=== Generated main.cpp ==="
-        head -20 build_temp/src/main.cpp
+        echo "=== Generated source files (will be EXCLUDED from library) ==="
+        ls -la build_temp/src/
+        echo ""
+        echo "=== User code content ==="
+        cat build_temp/src/*.cpp 2>/dev/null || echo "No cpp files in src"
     
     - name: Debug - Check build artifacts
       run: |
         echo "=== Checking build artifacts ==="
-        echo "main.cpp.o files found:"
-        find build_temp/.pio/build -name "main.cpp.o" -type f
+        echo "All .o files in src/:"
+        find build_temp/.pio/build -path "*/src/*.o" -type f || echo "No src object files"
+        
+        echo ""
+        echo "All .o files in FrameworkArduino/:"
+        find build_temp/.pio/build -path "*/FrameworkArduino/*.o" -type f | head -10
         
         echo ""
         echo "=== FrameworkArduino/main.cpp.o symbols ==="

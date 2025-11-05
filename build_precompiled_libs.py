@@ -63,22 +63,16 @@ def create_temp_project():
         shutil.rmtree(BUILD_TEMP_DIR)
     BUILD_TEMP_DIR.mkdir(parents=True)
     
-    # Create project structure
+    # Create project structure - PlatformIO requires src/ with at least one .cpp file
+    # Arduino framework needs setup()/loop() to be defined to compile its main.cpp with app_main
     (BUILD_TEMP_DIR / "src").mkdir()
     (BUILD_TEMP_DIR / "include").mkdir()
     
-    # Create a simple main file that includes all libraries
-    main_cpp = BUILD_TEMP_DIR / "src" / "main.cpp"
-    with open(main_cpp, "w") as f:
-        f.write("""
-#include <Arduino.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <ESP32Encoder.h>
-#include <Adafruit_NeoPixel.h>
-#include <MIDI.h>
-
-// Dummy setup and loop to satisfy Arduino
+    # Minimal user code - Arduino's main.cpp (with app_main) will be compiled in FrameworkArduino/
+    # This file will be EXCLUDED from library (all src/* is excluded)
+    user_main = BUILD_TEMP_DIR / "src" / "user.cpp"
+    with open(user_main, "w") as f:
+        f.write("""#include <Arduino.h>
 void setup() {}
 void loop() {}
 """)
@@ -129,10 +123,22 @@ def collect_objects():
     # Find all .o files
     obj_files = list(build_dir.rglob("*.o"))
     
-    # Exclude main.cpp.o from ProjectSrc (user code), but keep FrameworkArduino/main.cpp.o
-    obj_files = [f for f in obj_files if not ("ProjectSrc" in str(f) and "main.cpp.o" in str(f))]
+    # Exclude ALL files from src/ directory (ProjectSrc) - this is user code, not library code
+    # Keep only framework and library object files
+    obj_files = [f for f in obj_files if "src" not in str(f.relative_to(build_dir))]
     
-    print(f"Found {len(obj_files)} object files")
+    print(f"Found {len(obj_files)} object files (after excluding src/)")
+    
+    # Debug: show what we're including
+    framework_objs = [f for f in obj_files if "FrameworkArduino" in str(f)]
+    print(f"  Framework objects: {len(framework_objs)}")
+    if framework_objs:
+        main_obj = [f for f in framework_objs if "main.cpp.o" in str(f)]
+        if main_obj:
+            print(f"  ✅ Including FrameworkArduino/main.cpp.o with app_main")
+        else:
+            print(f"  ⚠️  WARNING: FrameworkArduino/main.cpp.o not found!")
+    
     return obj_files
 
 def create_static_library(obj_files, output_lib):
