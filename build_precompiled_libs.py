@@ -34,7 +34,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PREBUILT_DIR = SCRIPT_DIR / "prebuilt"
 BUILD_TEMP_DIR = SCRIPT_DIR / "build_temp"
-PLATFORM_DIR = SCRIPT_DIR.parent / "platform-espressif32-54.03.20-esp"
+PLATFORM_DIR = SCRIPT_DIR / "platform-espressif32-54.03.20-esp"
 
 # Libraries to include
 LIBRARIES = [
