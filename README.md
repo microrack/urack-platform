@@ -42,6 +42,9 @@ To rebuild the pre-compiled libraries:
 
 ```bash
 cd urack-platform
+# Initialize submodules (if cloning fresh)
+git submodule update --init --recursive
+# Build libraries
 python3 build_precompiled_libs.py
 ```
 
@@ -51,6 +54,8 @@ This will:
 3. Archive all object files into `liburack_arduino.a`
 4. Copy all necessary headers to `prebuilt/include/`
 5. Copy linker scripts and bootloader files
+
+**Note**: The original pioarduino platform (v54.03.20) is included as a git submodule for reference during the build process.
 
 ## Usage
 
