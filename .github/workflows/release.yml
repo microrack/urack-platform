@@ -36,136 +36,20 @@ jobs:
         pip install platformio
     
     - name: Build pre-compiled libraries
-      run: |
-        python3 build_precompiled_libs.py
-<<<<<<< HEAD
-        
-        echo ""
-        echo "=== Generated platformio.ini ==="
-        cat build_temp/platformio.ini
-        
-        echo ""
-        echo "=== Generated source files (will be EXCLUDED from library) ==="
-        ls -la build_temp/src/
-        echo ""
-        echo "=== User code content ==="
-        cat build_temp/src/*.cpp 2>/dev/null || echo "No cpp files in src"
-    
-    - name: Debug - Check build artifacts
-      run: |
-        echo "=== Checking build artifacts ==="
-        echo "All .o files in src/:"
-        find build_temp/.pio/build -path "*/src/*.o" -type f || echo "No src object files"
-        
-        echo ""
-        echo "All .o files in FrameworkArduino/:"
-        find build_temp/.pio/build -path "*/FrameworkArduino/*.o" -type f | head -10
-        
-        echo ""
-        echo "=== FrameworkArduino/main.cpp.o symbols ==="
-        MAIN_O=$(find build_temp/.pio/build -path "*/FrameworkArduino/main.cpp.o" | head -1)
-        if [ -n "$MAIN_O" ]; then
-          TOOLCHAIN=$(find ~/.platformio/packages -name "xtensa-esp32-elf-nm" -type f 2>/dev/null | head -1)
-          if [ -n "$TOOLCHAIN" ]; then
-            NM_CMD=$(dirname "$TOOLCHAIN")/xtensa-esp32-elf-nm
-            echo "Checking symbols in $MAIN_O:"
-            $NM_CMD "$MAIN_O" | grep -E "app_main|loopTask" || echo "No app_main found!"
-          fi
-        else
-          echo "ERROR: FrameworkArduino/main.cpp.o not found!"
-        fi
-=======
->>>>>>> parent of 2e14630 (Add extensive debugging for GitHub Actions build)
-    
-    - name: Verify prebuilt directory
-      run: |
-        ls -lah prebuilt/
-        echo "Library size:"
-        du -h prebuilt/liburack_arduino.a
-        echo "Headers count:"
-        find prebuilt/include -name "*.h" | wc -l
+      run: python3 build_precompiled_libs.py
     
     - name: Create release archive
       run: |
-        # Get version from tag
         VERSION=${GITHUB_REF#refs/tags/}
-        
-        # Create archive with all necessary files
-        zip -r platform-urack-esp32-${VERSION}.zip \
-          platform.json \
-          platform.py \
-          boards/ \
-          builder/ \
-          prebuilt/ \
-          build_precompiled_libs.py \
-          README.md \
-          .gitignore
-        
-        echo "Archive created: platform-urack-esp32-${VERSION}.zip"
+        zip -r platform-urack-esp32-${VERSION}.zip platform.json platform.py boards/ builder/ prebuilt/ README.md .gitignore
+        echo "Archive: platform-urack-esp32-${VERSION}.zip"
         ls -lh platform-urack-esp32-${VERSION}.zip
-    
-    - name: Generate release notes
-      id: release_notes
-      run: |
-        VERSION=${GITHUB_REF#refs/tags/}
-        
-        cat > release_notes.md << EOF
-        # URack ESP32 Platform ${VERSION}
-        
-        ## Features
-        - Custom PlatformIO platform for ESP32
-        - Pre-compiled Arduino framework and libraries
-        - Support for mod-esp32-v1 board
-        - ~10x faster build times
-        
-        ## Usage
-        
-        Add to your \`platformio.ini\`:
-        
-        \`\`\`ini
-        [env:modesp32v1]
-        platform = https://github.com/${{ github.repository }}/releases/download/${VERSION}/platform-urack-esp32-${VERSION}.zip
-        board = mod-esp32-v1
-        framework = arduino
-        monitor_speed = 115200
-        \`\`\`
-        
-        ## What's Included
-        
-        - ✅ Pre-compiled Arduino Core for ESP32
-        - ✅ Pre-compiled libraries: Adafruit GFX, SSD1306, ESP32Encoder, NeoPixel, MIDI, BusIO
-        - ✅ All necessary headers (~4100 files)
-        - ✅ ESP-IDF integration
-        - ✅ Bootloader and partition tables
-        
-        ## Build Stats
-        
-        - Library size: $(du -h prebuilt/liburack_arduino.a | cut -f1)
-        - Headers: $(find prebuilt/include -name "*.h" | wc -l) files
-        - Object files: $(xtensa-esp32-elf-ar t prebuilt/liburack_arduino.a | wc -l)
-        
-        ## Requirements
-        
-        - PlatformIO Core >= 6.1.16
-        - ESP32 toolchain (auto-installed)
-        EOF
-        
-        cat release_notes.md
     
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        body_path: release_notes.md
-        files: |
-          platform-urack-esp32-${{ github.ref_name }}.zip
+        files: platform-urack-esp32-${{ github.ref_name }}.zip
         draft: false
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Release summary
-      run: |
-        echo "✅ Release ${{ github.ref_name }} created successfully!"
-        echo "📦 Archive: platform-urack-esp32-${{ github.ref_name }}.zip"
-        echo "🔗 URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/platform-urack-esp32-${{ github.ref_name }}.zip"
-
