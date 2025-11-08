@@ -24,6 +24,7 @@ http://arduino.cc/en/Reference/HomePage
 
 # Extends: https://github.com/pioarduino/platform-espressif32/blob/develop/builder/main.py
 
+import glob
 import sys
 from os.path import abspath, basename, isdir, isfile, join
 from copy import deepcopy
@@ -220,6 +221,73 @@ env.Depends("$BUILD_DIR/$PROGNAME$PROGSUFFIX", partition_table)
 action = deepcopy(env["BUILDERS"]["ElfToBin"].action)
 action.cmd_list = env["BUILDERS"]["ElfToBin"].action.cmd_list.replace("-o", "--elf-sha256-offset 0xb0 -o")
 env["BUILDERS"]["ElfToBin"].action = action
+
+#
+# Check for custom linker script
+#
+
+custom_ld_scripts = []
+project_dir = env.subst("$PROJECT_DIR")
+
+# Look for custom linker scripts in project root (common patterns)
+# Check specific names first, then wildcard
+specific_scripts = [
+    join(project_dir, "esp32.custom.ld"),
+    join(project_dir, "esp32.ld"),
+]
+
+for ld_script in specific_scripts:
+    if isfile(env.subst(ld_script)):
+        custom_ld_scripts.append(ld_script)
+
+# Then check for any other .ld files in project root
+wildcard_pattern = join(project_dir, "*.ld")
+found_scripts = glob.glob(wildcard_pattern)
+for script in found_scripts:
+    script_path = abspath(script)
+    if script_path not in [abspath(s) for s in custom_ld_scripts]:
+        custom_ld_scripts.append(script_path)
+
+# Remove known standard scripts (they're already included by framework)
+known_scripts = ["sections.ld", "memory.ld", "esp32.rom.ld"]
+custom_ld_scripts = [
+    script for script in custom_ld_scripts
+    if basename(script) not in known_scripts
+]
+
+# Remove duplicates while preserving order
+seen = set()
+custom_ld_scripts = [
+    script for script in custom_ld_scripts
+    if not (script in seen or seen.add(script))
+]
+
+if custom_ld_scripts:
+    print(f"URack: Found {len(custom_ld_scripts)} custom linker script(s):")
+    for ld_script in custom_ld_scripts:
+        print(f"  - {ld_script}")
+    
+    # Add custom linker scripts AFTER sections.ld
+    # This ensures standard sections are defined first, and custom sections
+    # can be placed after them without interfering with .flash.appdesc
+    # Format: ["-T", "script.ld", "-T", "script2.ld", ...]
+    custom_linkflags = []
+    for ld_script in custom_ld_scripts:
+        custom_linkflags.extend(["-T", abspath(env.subst(ld_script))])
+    
+    # Find sections.ld in LINKFLAGS and insert custom scripts after it
+    linkflags = env.get("LINKFLAGS", [])
+    try:
+        sections_ld_index = linkflags.index("sections.ld")
+        # Insert custom scripts after sections.ld
+        for i, flag in enumerate(custom_linkflags):
+            linkflags.insert(sections_ld_index + 1 + i, flag)
+        env.Replace(LINKFLAGS=linkflags)
+        print(f"URack: Custom linker scripts inserted after sections.ld")
+    except ValueError:
+        # sections.ld not found, append to end (fallback)
+        env.Append(LINKFLAGS=custom_linkflags)
+        print(f"URack: Custom linker scripts appended to LINKFLAGS (sections.ld not found)")
 
 #
 # Set application offset for upload
