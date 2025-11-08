@@ -196,45 +196,40 @@ def collect_headers():
     libraries_include = include_dir / "libraries"
     libraries_include.mkdir(exist_ok=True)
     
-    # Copy each library's headers
-    library_mapping = {
-        "Adafruit GFX Library": "Adafruit_GFX_Library",
-        "Adafruit SSD1306": "Adafruit_SSD1306",
-        "ESP32Encoder": "ESP32Encoder",
-        "Adafruit NeoPixel": "Adafruit_NeoPixel",
-        "MIDI Library": "MIDI_Library"
-    }
-    
+    # Copy all libraries from libdeps - universal solution without hardcoding
     for lib_dir in libdeps_dir.iterdir():
         if lib_dir.is_dir() and lib_dir.name != "integrity.dat":
             lib_name = lib_dir.name
-            # Match library - exact match now
-            if lib_name in library_mapping:
-                mapped_name = library_mapping[lib_name]
-                dest_dir = libraries_include / mapped_name
-                dest_dir.mkdir(exist_ok=True, parents=True)
-                
-                # Copy only header files
-                if (lib_dir / "src").exists():
-                    copy_headers_only(lib_dir / "src", dest_dir)
-                    print(f"Copied headers for {lib_name} (from src/)")
-                elif (lib_dir / "include").exists():
-                    copy_headers_only(lib_dir / "include", dest_dir)
-                    print(f"Copied headers for {lib_name} (from include/)")
-                else:
+            
+            # Normalize library name: replace spaces with underscores for directory name
+            # This makes names like "Adafruit GFX Library" -> "Adafruit_GFX_Library"
+            normalized_name = lib_name.replace(" ", "_")
+            dest_dir = libraries_include / normalized_name
+            dest_dir.mkdir(exist_ok=True, parents=True)
+            
+            # Find and copy header files from common locations:
+            # 1. src/ directory (most common)
+            # 2. include/ directory
+            # 3. Root directory (some libraries like Adafruit BusIO)
+            copied = False
+            if (lib_dir / "src").exists():
+                copy_headers_only(lib_dir / "src", dest_dir)
+                print(f"Copied headers for {lib_name} (from src/)")
+                copied = True
+            elif (lib_dir / "include").exists():
+                copy_headers_only(lib_dir / "include", dest_dir)
+                print(f"Copied headers for {lib_name} (from include/)")
+                copied = True
+            else:
+                # Check if there are any header files in root
+                has_headers = any(f.suffix in ('.h', '.hpp', '.inc') for f in lib_dir.iterdir() if f.is_file())
+                if has_headers:
                     copy_headers_only(lib_dir, dest_dir)
                     print(f"Copied headers for {lib_name} (from root)")
-            elif lib_name == "Adafruit BusIO":
-                # Also copy BusIO as it's a dependency of Adafruit libraries
-                dest_dir = libraries_include / "Adafruit_BusIO"
-                dest_dir.mkdir(exist_ok=True, parents=True)
-                
-                # Copy only header files
-                if (lib_dir / "src").exists():
-                    copy_headers_only(lib_dir / "src", dest_dir)
-                elif (lib_dir / "include").exists():
-                    copy_headers_only(lib_dir / "include", dest_dir)
-                print(f"Copied headers for Adafruit BusIO")
+                    copied = True
+            
+            if not copied:
+                print(f"Warning: No headers found for {lib_name}")
     
     # Try to copy Arduino and ESP-IDF headers from framework packages
     pio_packages = Path.home() / ".platformio" / "packages"
